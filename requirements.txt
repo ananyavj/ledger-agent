@@ -1,0 +1,4 @@
+# Database driver (v3) with prebuilt binaries, so no compiler is needed on Windows
+psycopg[binary]>=3.2
+# Reads the .env file
+python-dotenv>=1.0
