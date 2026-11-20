@@ -2,3 +2,11 @@
 psycopg[binary]>=3.2
 # Reads the .env file
 python-dotenv>=1.0
+
+# Agent framework: the graph, the tool-running node, the checkpointer
+langgraph>=1.1
+langchain-core>=1.0
+# Groq chat models for LangChain
+langchain-groq>=1.0
+# Tracing: sends each run to Langfuse Cloud
+langfuse>=3.0

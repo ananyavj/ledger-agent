@@ -29,3 +29,6 @@ LANGFUSE_HOST = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 # The "today" the app works with. Our sample data is frozen at 2026-11-15, so the
 # demo and the evals use that date. A real deployment would use date.today().
 AS_OF_DATE = os.getenv("AS_OF_DATE", "2026-11-15")
+
+# Which Groq model the agent uses. Kept in .env so we can switch with no code change.
+LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")

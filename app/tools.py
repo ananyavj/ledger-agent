@@ -194,3 +194,55 @@ def get_buyer_summary(buyer_name: str, as_of: str | None = None) -> dict[str, An
             for r in open_invoices[:MAX_ROWS]
         ],
     }
+
+
+# Ranking is chosen from this fixed list. Column names can't be passed as %s
+# parameters, so we never put text from the LLM into SQL; we only pick one of these.
+_RANK_BY = {
+    "outstanding": "outstanding",
+    "overdue": "overdue_balance",
+}
+
+
+def get_top_debtors(rank_by: str = "outstanding", limit: int = 10,
+                    as_of: str | None = None) -> dict[str, Any]:
+    """Buyers ranked by how much they owe, with totals across all buyers.
+
+    rank_by: "outstanding" (everything unpaid, due or not) or "overdue" (only past due).
+    limit: how many buyers to list (1 to 20).
+    """
+    if rank_by not in _RANK_BY:
+        return {"error": f"rank_by must be one of {sorted(_RANK_BY)}"}
+    as_of_day = _as_of(as_of)
+    limit = min(max(1, int(limit)), 20)
+
+    rows = query(
+        f"""
+        SELECT buyer_name,
+               count(*) FILTER (WHERE balance > 0)                              AS open_invoices,
+               sum(balance)                                                     AS outstanding,
+               COALESCE(sum(balance) FILTER (WHERE balance > 0
+                                             AND due_date < %(as_of)s), 0)      AS overdue_balance,
+               max(%(as_of)s::date - due_date) FILTER (WHERE balance > 0
+                                             AND due_date < %(as_of)s)          AS oldest_overdue_days
+        FROM invoice_balances
+        GROUP BY buyer_id, buyer_name
+        HAVING sum(balance) > 0
+        ORDER BY {_RANK_BY[rank_by]} DESC
+        """,
+        {"as_of": as_of_day},
+    )
+    ranked = [r for r in rows if rank_by == "outstanding" or r["overdue_balance"] > 0]
+    return {
+        "as_of": as_of_day.isoformat(),
+        "ranked_by": rank_by,
+        "buyers_owing_count": len(ranked),
+        "total_outstanding_all_buyers": _money(sum((r["outstanding"] for r in rows), Decimal(0))),
+        "total_overdue_all_buyers": _money(sum((r["overdue_balance"] for r in rows), Decimal(0))),
+        "buyers": [
+            {"buyer": r["buyer_name"], "open_invoices": r["open_invoices"],
+             "outstanding": _money(r["outstanding"]), "overdue": _money(r["overdue_balance"]),
+             "oldest_overdue_days": r["oldest_overdue_days"]}
+            for r in ranked[:limit]
+        ],
+    }
