@@ -32,3 +32,7 @@ AS_OF_DATE = os.getenv("AS_OF_DATE", "2026-11-15")
 
 # Which Groq model the agent uses. Kept in .env so we can switch with no code change.
 LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
+
+# Send the session cookie only over HTTPS. Keep false for local http://localhost;
+# set COOKIE_SECURE=true when the app is deployed behind HTTPS.
+COOKIE_SECURE = os.getenv("COOKIE_SECURE", "false").lower() == "true"

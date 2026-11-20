@@ -15,6 +15,7 @@ from langgraph.errors import GraphRecursionError
 from langgraph.types import Command
 
 from app.agent import build_graph, postgres_checkpointer
+from app.tools import DEMO_WORKSPACE_ID
 from app.config import LANGFUSE_PUBLIC_KEY
 
 MAX_STEPS = 12   # hard stop, so a confused agent can't loop (and spend tokens) forever
@@ -31,7 +32,10 @@ def make_callbacks() -> list:
 
 def make_config(thread_id: str, callbacks: list) -> dict:
     return {
-        "configurable": {"thread_id": thread_id},          # which conversation to load and save
+        "configurable": {"thread_id": thread_id,           # which conversation to load and save
+                         # the terminal chat always uses the demo workspace
+                         "workspace_id": DEMO_WORKSPACE_ID, "workspace_name": "Meera Packaging Solutions",
+                         "as_of": "2026-11-15"},
         "recursion_limit": MAX_STEPS,
         "callbacks": callbacks,
         "metadata": {"langfuse_session_id": thread_id},    # groups this chat's turns in Langfuse

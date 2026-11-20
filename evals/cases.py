@@ -82,12 +82,13 @@ def _num(x: float) -> str:
 
 def agent_cases() -> list[AgentCase]:
     cases: list[AgentCase] = []
-    top = t.get_top_debtors("outstanding", 3)
-    top_overdue = t.get_top_debtors("overdue", 3)
-    overdue = t.get_overdue_invoices()
-    over60 = t.get_overdue_invoices(min_days_overdue=61)   # "more than 60" means 61 or more
+    ws = t.DEMO_WORKSPACE_ID   # evals always run on the demo workspace and its frozen date
+    top = t.get_top_debtors(ws, "outstanding", 3)
+    top_overdue = t.get_top_debtors(ws, "overdue", 3)
+    overdue = t.get_overdue_invoices(ws)
+    over60 = t.get_overdue_invoices(ws, min_days_overdue=61)   # "more than 60" means 61 or more
     second = top["buyers"][1]
-    sharma = t.get_buyer_summary("Sharma Traders")
+    sharma = t.get_buyer_summary(ws, "Sharma Traders")
 
     # ---- data questions (answers from Postgres)
     cases += [
@@ -169,8 +170,8 @@ def agent_cases() -> list[AgentCase]:
     oldest = overdue["invoices"][0]
     mid = query(   # an invoice 16-60 days overdue: "firm" is allowed, "final" is not
         """SELECT invoice_no FROM invoice_balances
-           WHERE balance > 0 AND (%(d)s::date - due_date) BETWEEN 16 AND 60
-           ORDER BY invoice_no LIMIT 1""", {"d": GROUND_TRUTH["as_of"]})
+           WHERE workspace_id = %(w)s AND balance > 0 AND (%(d)s::date - due_date) BETWEEN 16 AND 60
+           ORDER BY invoice_no LIMIT 1""", {"d": GROUND_TRUTH["as_of"], "w": ws})
     cases += [
         AgentCase("reminder-01", "reminder",
                   f"Draft a firm reminder for invoice {oldest['invoice_no']}.", ("propose_reminder",),

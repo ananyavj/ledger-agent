@@ -31,6 +31,9 @@ from app.config import LANGFUSE_PUBLIC_KEY, LLM_MODEL
 from evals.cases import AgentCase, agent_cases, retrieval_cases
 
 RESULTS_DIR = Path(__file__).resolve().parent.parent / "evals" / "results"
+# Evals always run in the demo workspace, with its fixed date, so answers never drift
+DEMO_CONTEXT = {"workspace_id": t.DEMO_WORKSPACE_ID, "workspace_name": "Meera Packaging Solutions",
+                "as_of": "2026-11-15"}
 
 # Paid list prices for gpt-oss-120b, USD per million tokens. Our runs are on the free tier,
 # so this is what the same traffic WOULD cost. Update if you switch model or prices change.
@@ -49,7 +52,7 @@ def run_retrieval() -> dict:
     misses = []
     for c in cases:
         start = time.perf_counter()
-        result = t.search_contract(c.buyer, c.question, top_k=3)
+        result = t.search_contract(t.DEMO_WORKSPACE_ID, c.buyer, c.question, top_k=3)
         latencies.append(time.perf_counter() - start)
         titles = [clause["text"].splitlines()[0] for clause in result.get("clauses", [])]
         rank = next((i for i, title in enumerate(titles, start=1)
@@ -126,7 +129,7 @@ def _json_or_empty(text) -> dict:
 
 def run_case(graph, case: AgentCase, callbacks: list, run_id: str) -> dict:
     config = {
-        "configurable": {"thread_id": f"eval-{run_id}-{case.id}"},
+        "configurable": {"thread_id": f"eval-{run_id}-{case.id}", **DEMO_CONTEXT},
         "recursion_limit": 12,
         "callbacks": callbacks,
         "metadata": {"langfuse_session_id": f"eval-{run_id}", "langfuse_tags": ["eval", case.category]},

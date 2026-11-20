@@ -40,7 +40,10 @@ export function RemindersPanel({ open, onClose }: { open: boolean; onClose: () =
               <summary>
                 <span className="reminder__title">{r.buyer}</span>
                 <span className={`tone tone--${r.tone}`}>{r.tone}</span>
-                <span className="reminder__sub">{r.invoice_no} · {formatDate(r.created_at)}</span>
+                <span className="reminder__sub">
+                  {r.invoice_no} · {formatDate(r.created_at)}
+                  {r.decided_by && ` · ${r.status} by ${r.decided_by}`}
+                </span>
               </summary>
               <pre>{r.draft_text}</pre>
             </details>

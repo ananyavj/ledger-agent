@@ -48,7 +48,7 @@ services:
     depends_on:
       - api
 
-  # One-off job: create the sample data and index the contracts
+  # One-off job: apply migrations, create the sample data and index the contracts
   setup:
     build: .
     profiles: ["setup"]
@@ -56,7 +56,7 @@ services:
     environment:
       POSTGRES_HOST: db
       POSTGRES_PORT: "5432"
-    command: ["sh", "-c", "python -m scripts.seed_data && python -m scripts.ingest_contracts"]
+    command: ["sh", "-c", "python -m scripts.migrate && python -m scripts.seed_data && python -m scripts.ingest_contracts"]
     depends_on:
       db:
         condition: service_healthy

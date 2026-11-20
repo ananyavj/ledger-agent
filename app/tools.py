@@ -3,6 +3,10 @@
 They know nothing about LangGraph or the LLM. That keeps them easy to test on their
 own, and the agent layer will wrap them later.
 
+Every function takes a workspace_id first. It comes from the signed-in session (or the
+demo workspace in scripts), NEVER from the LLM, and every query filters by it, so one
+business can never see another's data.
+
 Rules every tool follows:
   - Returns a small, JSON-friendly dict. The LLM reads it, so it must be compact.
   - Never guesses which buyer was meant. Unclear names come back as an error with
@@ -17,11 +21,11 @@ from datetime import date
 from decimal import Decimal
 from typing import Any
 
-from app.config import AS_OF_DATE
 from app.db import query, transaction
 from app.embeddings import embed_query, to_pgvector
 
 MAX_ROWS = 15
+DEMO_WORKSPACE_ID = 1
 
 
 def _money(value: Decimal | None) -> float:
@@ -29,17 +33,26 @@ def _money(value: Decimal | None) -> float:
     return float(value or 0)
 
 
-def _as_of(as_of: str | None) -> date:
-    return date.fromisoformat(as_of or AS_OF_DATE)
+def workspace_today(workspace_id: int) -> date:
+    """The demo workspace is frozen at a fixed date (stable evals); real workspaces use today."""
+    rows = query("SELECT as_of_date FROM workspaces WHERE id = %(w)s", {"w": workspace_id})
+    if not rows:
+        raise ValueError(f"Workspace {workspace_id} does not exist")
+    return rows[0]["as_of_date"] or date.today()
 
 
-def resolve_buyer(name: str) -> dict[str, Any]:
+def _as_of(workspace_id: int, as_of: str | None = None) -> date:
+    return date.fromisoformat(as_of) if as_of else workspace_today(workspace_id)
+
+
+def resolve_buyer(workspace_id: int, name: str) -> dict[str, Any]:
     """Turn whatever the user typed into exactly one buyer, or explain why we can't.
 
     Order of checks: exact match, then "contained in" match, then close spellings.
     Returns {"buyer": {...}} on success, or {"error": ..., "candidates": [...]}.
     """
-    buyers = query("SELECT id, name FROM buyers ORDER BY name")
+    buyers = query("SELECT id, name FROM buyers WHERE workspace_id = %(w)s ORDER BY name",
+                   {"w": workspace_id})
     wanted = name.strip().lower()
 
     exact = [b for b in buyers if b["name"].lower() == wanted]
@@ -61,19 +74,19 @@ def resolve_buyer(name: str) -> dict[str, Any]:
     return {"error": f"No buyer matches '{name}'.", "candidates": []}
 
 
-def get_overdue_invoices(min_days_overdue: int = 1, buyer_name: str | None = None,
+def get_overdue_invoices(workspace_id: int, min_days_overdue: int = 1, buyer_name: str | None = None,
                          as_of: str | None = None) -> dict[str, Any]:
     """Invoices past their due date that are not fully paid, most overdue first.
 
     min_days_overdue: only include invoices at least this many days late (default 1).
     buyer_name: optionally limit to one buyer.
     """
-    as_of_day = _as_of(as_of)
+    as_of_day = _as_of(workspace_id, as_of)
     min_days = max(1, int(min_days_overdue))   # 0 or negative would mean "not overdue yet"
 
     buyer_id = None
     if buyer_name:
-        found = resolve_buyer(buyer_name)
+        found = resolve_buyer(workspace_id, buyer_name)
         if "error" in found:
             return found
         buyer_id = found["buyer"]["id"]
@@ -83,12 +96,13 @@ def get_overdue_invoices(min_days_overdue: int = 1, buyer_name: str | None = Non
         SELECT invoice_no, buyer_name, issue_date, due_date, amount, amount_paid, balance, status,
                (%(as_of)s::date - due_date) AS days_overdue
         FROM invoice_balances
-        WHERE balance > 0
+        WHERE workspace_id = %(ws)s
+          AND balance > 0
           AND (%(as_of)s::date - due_date) >= %(min_days)s
           AND (%(buyer_id)s::int IS NULL OR buyer_id = %(buyer_id)s::int)
         ORDER BY days_overdue DESC, balance DESC
         """,
-        {"as_of": as_of_day, "min_days": min_days, "buyer_id": buyer_id},
+        {"ws": workspace_id, "as_of": as_of_day, "min_days": min_days, "buyer_id": buyer_id},
     )
     shown = rows[:MAX_ROWS]
     result: dict[str, Any] = {
@@ -109,13 +123,13 @@ def get_overdue_invoices(min_days_overdue: int = 1, buyer_name: str | None = Non
     return result
 
 
-def get_buyer_summary(buyer_name: str, as_of: str | None = None) -> dict[str, Any]:
+def get_buyer_summary(workspace_id: int, buyer_name: str, as_of: str | None = None) -> dict[str, Any]:
     """One buyer's contact details, totals, payment habit and open invoices."""
-    found = resolve_buyer(buyer_name)
+    found = resolve_buyer(workspace_id, buyer_name)   # only finds buyers in this workspace
     if "error" in found:
         return found
     buyer_id = found["buyer"]["id"]
-    as_of_day = _as_of(as_of)
+    as_of_day = _as_of(workspace_id, as_of)
     params = {"buyer_id": buyer_id, "as_of": as_of_day}
 
     contact = query("SELECT name, contact_name, phone, email FROM buyers WHERE id = %(buyer_id)s",
@@ -208,16 +222,17 @@ _RANK_BY = {
 }
 
 
-def get_invoice(invoice_no: str, as_of: str | None = None) -> dict[str, Any]:
+def get_invoice(workspace_id: int, invoice_no: str, as_of: str | None = None) -> dict[str, Any]:
     """Everything about one invoice, found by its number, including every payment against it."""
-    as_of_day = _as_of(as_of)
+    as_of_day = _as_of(workspace_id, as_of)
     rows = query(
         """
         SELECT invoice_id, invoice_no, buyer_name, issue_date, due_date, amount, amount_paid,
                balance, status, GREATEST(%(as_of)s::date - due_date, 0) AS days_overdue
-        FROM invoice_balances WHERE upper(invoice_no) = upper(%(no)s)
+        FROM invoice_balances
+        WHERE workspace_id = %(ws)s AND upper(invoice_no) = upper(%(no)s)
         """,
-        {"no": plain_text(invoice_no).strip(), "as_of": as_of_day},
+        {"ws": workspace_id, "no": plain_text(invoice_no).strip(), "as_of": as_of_day},
     )
     if not rows:
         return {"error": f"No invoice numbered {invoice_no}."}
@@ -235,7 +250,7 @@ def get_invoice(invoice_no: str, as_of: str | None = None) -> dict[str, Any]:
     }
 
 
-def get_top_debtors(rank_by: str = "outstanding", limit: int = 10,
+def get_top_debtors(workspace_id: int, rank_by: str = "outstanding", limit: int = 10,
                     as_of: str | None = None) -> dict[str, Any]:
     """Buyers ranked by how much they owe, with totals across all buyers.
 
@@ -244,7 +259,7 @@ def get_top_debtors(rank_by: str = "outstanding", limit: int = 10,
     """
     if rank_by not in _RANK_BY:
         return {"error": f"rank_by must be one of {sorted(_RANK_BY)}"}
-    as_of_day = _as_of(as_of)
+    as_of_day = _as_of(workspace_id, as_of)
     limit = min(max(1, int(limit)), 20)
 
     rows = query(
@@ -257,11 +272,12 @@ def get_top_debtors(rank_by: str = "outstanding", limit: int = 10,
                max(%(as_of)s::date - due_date) FILTER (WHERE balance > 0
                                              AND due_date < %(as_of)s)          AS oldest_overdue_days
         FROM invoice_balances
+        WHERE workspace_id = %(ws)s
         GROUP BY buyer_id, buyer_name
         HAVING sum(balance) > 0
         ORDER BY {_RANK_BY[rank_by]} DESC
         """,
-        {"as_of": as_of_day},
+        {"ws": workspace_id, "as_of": as_of_day},
     )
     ranked = [r for r in rows if rank_by == "outstanding" or r["overdue_balance"] > 0]
     return {
@@ -281,13 +297,13 @@ def get_top_debtors(rank_by: str = "outstanding", limit: int = 10,
 
 # ------------------------------------------------------------ contract search (RAG)
 
-def search_contract(buyer_name: str, question: str, top_k: int = 3) -> dict[str, Any]:
+def search_contract(workspace_id: int, buyer_name: str, question: str, top_k: int = 3) -> dict[str, Any]:
     """Find the contract clauses most relevant to a question, for one buyer only.
 
     The question is embedded and compared with each clause's embedding using
     cosine distance (pgvector's <=> operator). Smaller distance = closer meaning.
     """
-    found = resolve_buyer(buyer_name)
+    found = resolve_buyer(workspace_id, buyer_name)
     if "error" in found:
         return found
     buyer = found["buyer"]
@@ -305,7 +321,7 @@ def search_contract(buyer_name: str, question: str, top_k: int = 3) -> dict[str,
     )
     if not rows:
         return {"error": f"No contract is on file for {buyer['name']}. "
-                         "Run the contract ingestion script if this is unexpected."}
+                         "Upload one from the Data panel."}
     return {
         "buyer": buyer["name"],
         "contract_file": rows[0]["source_file"],
@@ -351,7 +367,7 @@ def _dates_in(text: str) -> set[date]:
     return found
 
 
-def validate_reminder(invoice_no: str, tone: str, message: str,
+def validate_reminder(workspace_id: int, invoice_no: str, tone: str, message: str,
                       as_of: str | None = None) -> dict[str, Any]:
     """Deterministic checks on a drafted reminder BEFORE Meera ever sees it.
 
@@ -368,9 +384,9 @@ def validate_reminder(invoice_no: str, tone: str, message: str,
                ib.amount, ib.balance, b.contact_name, b.email,
                (%(as_of)s::date - ib.due_date) AS days_overdue
         FROM invoice_balances ib JOIN buyers b ON b.id = ib.buyer_id
-        WHERE upper(ib.invoice_no) = upper(%(no)s)
+        WHERE ib.workspace_id = %(ws)s AND upper(ib.invoice_no) = upper(%(no)s)
         """,
-        {"no": plain_text(invoice_no).strip(), "as_of": _as_of(as_of)},
+        {"ws": workspace_id, "no": plain_text(invoice_no).strip(), "as_of": _as_of(workspace_id, as_of)},
     )
     if not rows:
         return {"error": f"Invoice {invoice_no} does not exist."}
@@ -424,7 +440,7 @@ def validate_reminder(invoice_no: str, tone: str, message: str,
             "days_overdue": inv["days_overdue"], "message": message}
 
 
-def save_pending_reminder(invoice_id: int, tone: str, message: str) -> int:
+def save_pending_reminder(workspace_id: int, invoice_id: int, tone: str, message: str) -> int:
     """Store the draft as 'pending'. Safe to call twice for the same invoice.
 
     LangGraph re-runs a tool from the top when it resumes after an approval pause,
@@ -445,8 +461,10 @@ def save_pending_reminder(invoice_id: int, tone: str, message: str) -> int:
         ).fetchone()
         if row["inserted"]:
             conn.execute(
-                "INSERT INTO audit_log (actor, action, details) VALUES ('agent', 'draft_reminder', %(d)s)",
-                {"d": json.dumps({"reminder_id": row["id"], "invoice_id": invoice_id, "tone": tone})},
+                "INSERT INTO audit_log (workspace_id, actor, action, details) "
+                "VALUES (%(w)s, 'agent', 'draft_reminder', %(d)s)",
+                {"w": workspace_id,
+                 "d": json.dumps({"reminder_id": row["id"], "invoice_id": invoice_id, "tone": tone})},
             )
     return row["id"]
 
@@ -460,21 +478,24 @@ def record_decision(reminder_id: int, decision: dict[str, Any]) -> dict[str, Any
     with transaction() as conn:
         row = conn.execute(
             """
-            UPDATE reminders
+            UPDATE reminders r
             SET status = %(status)s,
-                draft_text = COALESCE(%(edited)s, draft_text),
-                decided_at = now()
-            WHERE id = %(id)s AND status = 'pending'
-            RETURNING id, draft_text
+                draft_text = COALESCE(%(edited)s, r.draft_text),
+                decided_at = now(),
+                decided_by = %(by)s
+            FROM invoices i
+            WHERE r.id = %(id)s AND r.status = 'pending' AND i.id = r.invoice_id
+            RETURNING r.id, r.draft_text, i.workspace_id
             """,
-            {"status": status, "edited": decision.get("edited_message"), "id": reminder_id},
+            {"status": status, "edited": decision.get("edited_message"), "id": reminder_id,
+             "by": decision.get("decided_by")},   # None from the terminal chat and evals
         ).fetchone()
         if row is None:
             return {"error": "This reminder was already decided."}
         conn.execute(
-            "INSERT INTO audit_log (actor, action, details) VALUES ('owner', %(a)s, %(d)s)",
-            {"a": f"{action}_reminder",
-             "d": json.dumps({"reminder_id": reminder_id,
+            "INSERT INTO audit_log (workspace_id, actor, action, details) VALUES (%(w)s, 'owner', %(a)s, %(d)s)",
+            {"w": row["workspace_id"], "a": f"{action}_reminder",
+             "d": json.dumps({"reminder_id": reminder_id, "user_id": decision.get("decided_by"),
                               "edited": decision.get("edited_message") is not None,
                               "reason": decision.get("reason")})},
         )

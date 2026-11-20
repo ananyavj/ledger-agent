@@ -12,6 +12,7 @@ Our code (the "tools" node) is what actually runs anything.
 import json
 
 from langchain_core.messages import SystemMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import tool
 from langchain_groq import ChatGroq
 from langgraph.checkpoint.memory import InMemorySaver
@@ -26,10 +27,18 @@ from app.config import AS_OF_DATE, DATABASE_URL, GROQ_API_KEY, LLM_MODEL
 # ---------------------------------------------------------------- tools
 # The docstring IS the tool description the LLM reads to decide when to use it.
 # Writing these well is a big part of making an agent reliable.
-# Note: the date is not a parameter. The LLM must never be able to change "today".
+#
+# Each tool also receives `config` (the request's settings). LangChain injects it and
+# hides it from the LLM, so the model can't see or change it. That's where the
+# workspace comes from: the LLM can never point a tool at another business's data,
+# and it can't change "today" either.
+
+def _ws(config: RunnableConfig) -> int:
+    return config.get("configurable", {}).get("workspace_id", t.DEMO_WORKSPACE_ID)
 
 @tool
-def overdue_invoices(min_days_overdue: int = 1, buyer_name: str | None = None) -> str:
+def overdue_invoices(config: RunnableConfig, min_days_overdue: int = 1,
+                     buyer_name: str | None = None) -> str:
     """List invoices that are past their due date and not fully paid, most overdue first.
 
     Use for questions like "who owes me money?", "what is overdue?",
@@ -40,12 +49,12 @@ def overdue_invoices(min_days_overdue: int = 1, buyer_name: str | None = None) -
         min_days_overdue: only include invoices at least this many days late. Default 1.
         buyer_name: optional. Limit the list to one buyer.
     """
-    return json.dumps(t.get_overdue_invoices(min_days_overdue=min_days_overdue,
+    return json.dumps(t.get_overdue_invoices(_ws(config), min_days_overdue=min_days_overdue,
                                              buyer_name=buyer_name))
 
 
 @tool
-def buyer_summary(buyer_name: str) -> str:
+def buyer_summary(buyer_name: str, config: RunnableConfig) -> str:
     """Everything about one buyer: contact details, total billed, paid and outstanding,
     overdue amount, payment habit, last payment date, and their unpaid invoices.
 
@@ -55,11 +64,11 @@ def buyer_summary(buyer_name: str) -> str:
     Args:
         buyer_name: the buyer's name, or part of it, as the user wrote it.
     """
-    return json.dumps(t.get_buyer_summary(buyer_name))
+    return json.dumps(t.get_buyer_summary(_ws(config), buyer_name))
 
 
 @tool
-def top_debtors(rank_by: str = "outstanding", limit: int = 10) -> str:
+def top_debtors(config: RunnableConfig, rank_by: str = "outstanding", limit: int = 10) -> str:
     """Rank BUYERS by how much money they owe, with totals across all buyers.
 
     Use for questions like "who owes me the most?", "my biggest defaulters",
@@ -71,11 +80,11 @@ def top_debtors(rank_by: str = "outstanding", limit: int = 10) -> str:
                  or "overdue" for only amounts past their due date.
         limit: how many buyers to list, 1 to 20. Default 10.
     """
-    return json.dumps(t.get_top_debtors(rank_by=rank_by, limit=limit))
+    return json.dumps(t.get_top_debtors(_ws(config), rank_by=rank_by, limit=limit))
 
 
 @tool
-def invoice_details(invoice_no: str) -> str:
+def invoice_details(invoice_no: str, config: RunnableConfig) -> str:
     """Look up ONE invoice by its number: buyer, invoice and due dates, amount, amount paid,
     balance, days overdue and every payment made against it.
 
@@ -84,11 +93,11 @@ def invoice_details(invoice_no: str) -> str:
     Args:
         invoice_no: e.g. "INV-2026-0146".
     """
-    return json.dumps(t.get_invoice(invoice_no))
+    return json.dumps(t.get_invoice(_ws(config), invoice_no))
 
 
 @tool
-def contract_search(buyer_name: str, question: str) -> str:
+def contract_search(buyer_name: str, question: str, config: RunnableConfig) -> str:
     """Search ONE buyer's written contract and return the most relevant clauses.
 
     Use for any question about agreed terms: payment period, late fees or interest,
@@ -98,11 +107,11 @@ def contract_search(buyer_name: str, question: str) -> str:
         buyer_name: the buyer's name, or part of it, as the user wrote it.
         question: what to look for, in plain words, e.g. "late payment fee".
     """
-    return json.dumps(t.search_contract(buyer_name, question), ensure_ascii=False)
+    return json.dumps(t.search_contract(_ws(config), buyer_name, question), ensure_ascii=False)
 
 
 @tool
-def propose_reminder(invoice_no: str, tone: str, message: str) -> str:
+def propose_reminder(invoice_no: str, tone: str, message: str, config: RunnableConfig) -> str:
     """Draft a payment reminder for ONE overdue invoice and hand it to Meera for approval.
     Nothing is ever sent without her approval. She can approve, edit or reject it.
 
@@ -116,14 +125,15 @@ def propose_reminder(invoice_no: str, tone: str, message: str) -> str:
               or "final" (61+ days overdue).
         message: the full reminder, addressed to the buyer's contact person by name,
                  stating the invoice number and the exact outstanding balance in rupees,
-                 signed "Meera, Meera Packaging Solutions".
+                 signed with the business's name.
     """
-    facts = t.validate_reminder(invoice_no, tone, message)   # deterministic guardrails
+    workspace_id = _ws(config)
+    facts = t.validate_reminder(workspace_id, invoice_no, tone, message)   # deterministic guardrails
     if "error" in facts:
         return json.dumps(facts)   # the LLM reads the problems and can fix its draft
 
     message = facts.pop("message")   # the validated text, with typographic characters normalised
-    reminder_id = t.save_pending_reminder(facts["invoice_id"], tone, message)
+    reminder_id = t.save_pending_reminder(workspace_id, facts["invoice_id"], tone, message)
 
     # PAUSE: the graph stops here and saves its state. It continues only when the app
     # resumes it with Meera's decision, which becomes the return value of interrupt().
@@ -140,22 +150,24 @@ TOOLS = [overdue_invoices, buyer_summary, top_debtors, invoice_details, contract
 
 # ---------------------------------------------------------------- prompt
 
-SYSTEM_PROMPT = f"""You are the accounts assistant for Meera Packaging Solutions, a small \
-packaging business in Pune. You help the owner, Meera, keep track of money her buyers owe.
+SYSTEM_PROMPT = """You are the accounts assistant for {business}. You help its team keep \
+track of money their buyers owe.
 
-Today's date is {AS_OF_DATE}.
+Today's date is {today}.
 
 Rules:
 1. Every amount, date, invoice number and name you state must come from a tool result in \
 this conversation. Never estimate or invent figures.
-2. If a tool returns an "error" with "candidates", do not choose one yourself. Ask Meera \
-which buyer she means and list the candidates.
-3. If your tools cannot answer the question, say so plainly instead of guessing.
+2. If a tool returns an "error" with "candidates", do not choose one yourself. Ask the user \
+which buyer they mean and list the candidates.
+3. If your tools cannot answer the question, say so plainly instead of guessing. If the \
+tools find no data at all, say this workspace has no data yet and that it can be added \
+from the Data panel.
 4. Write money in Indian format with the rupee sign, for example ₹1,24,347.
 5. Be brief: give the answer first, then at most five supporting details.
-6. You cannot send anything yourself. propose_reminder only saves a draft for Meera's \
+6. You cannot send anything yourself. propose_reminder only saves a draft for the user's \
 approval. Never say a reminder was sent.
-7. Whenever Meera names or refers to a buyer, call a tool with the name exactly as she \
+7. Whenever the user names or refers to a buyer, call a tool with the name exactly as they \
 wrote it, even if you looked up a similar buyer earlier. Never decide yourself which \
 buyer a partial name like "pharma" means.
 8. Read tool results carefully. If a field is null, say that information isn't available.
@@ -164,7 +176,18 @@ If the returned clauses don't cover the question, say the contract doesn't speci
 10. If propose_reminder returns problems, fix the draft and try again (at most twice).
 11. When you mention a date, say exactly what it is: "invoice date" (when the bill was \
 issued) or "due date" (when payment was due). Never call a due date the invoice date.
-12. If Meera rejects a draft, stop. Do not propose another reminder unless she asks for one."""
+12. If the user rejects a draft, stop. Do not propose another reminder unless they ask for one."""
+
+
+def system_prompt(configurable: dict) -> str:
+    """Fill in the business and date for this request's workspace."""
+    prompt = SYSTEM_PROMPT.format(
+        business=configurable.get("workspace_name", "Meera Packaging Solutions, a packaging business in Pune"),
+        today=configurable.get("as_of", AS_OF_DATE),
+    )
+    if configurable.get("user_name"):
+        prompt += f"\n\nYou are talking with {configurable['user_name']}. Address them by name."
+    return prompt
 
 
 # ---------------------------------------------------------------- graph
@@ -202,10 +225,11 @@ def build_graph(checkpointer=None):
     llm = ChatGroq(model=LLM_MODEL, temperature=0, api_key=GROQ_API_KEY, max_retries=2)
     llm_with_tools = llm.bind_tools(TOOLS)   # sends the tool descriptions with every call
 
-    def agent(state: MessagesState) -> dict:
+    def agent(state: MessagesState, config: RunnableConfig) -> dict:
         # The system prompt is added on every call but never stored in the conversation,
         # so changing the prompt later doesn't leave old copies in saved history.
-        response = llm_with_tools.invoke([SystemMessage(SYSTEM_PROMPT)] + state["messages"])
+        prompt = system_prompt(config.get("configurable", {}))
+        response = llm_with_tools.invoke([SystemMessage(prompt)] + state["messages"])
         return {"messages": [response]}
 
     graph = StateGraph(MessagesState)

@@ -11,8 +11,9 @@ What it creates
 Two properties matter:
   Deterministic: a fixed random SEED and a fixed AS_OF date mean every run
                  produces identical data, so eval answers never drift.
-  Safe to re-run: all business tables are wiped and refilled inside ONE
-                  transaction. If anything fails, nothing is half-written.
+  Safe to re-run: the demo workspace's data is wiped and refilled inside ONE
+                  transaction. If anything fails, nothing is half-written. Other
+                  workspaces are never touched.
 """
 import json
 import random
@@ -27,6 +28,7 @@ import psycopg
 from app.config import DATABASE_URL
 
 SEED = 42
+DEMO_WORKSPACE_ID = 1      # created by db/migrations/002_workspaces.sql (run `python -m scripts.migrate` first)
 AS_OF = date(2026, 11, 15)   # "today" in Meera's world. Never use date.today() here.
 HISTORY_DAYS = 240           # invoices go back about 8 months
 SUPPLIER = "Meera Packaging Solutions"
@@ -249,24 +251,25 @@ def write_files(rng: random.Random, buyers: list[Buyer]) -> None:
 def load_into_db(buyers: list[Buyer], invoices: list[Invoice]) -> None:
     # `with psycopg.connect(...)` commits if the block finishes, rolls back if it raises.
     with psycopg.connect(DATABASE_URL) as conn, conn.cursor() as cur:
-        cur.execute("""
-            TRUNCATE audit_log, reminders, contract_chunks, payments, invoices, buyers
-            RESTART IDENTITY CASCADE
-        """)
+        # Replace ONLY the demo workspace's data; other workspaces are real businesses.
+        # Deleting the buyers cascades to their invoices, payments, contract chunks and reminders.
+        cur.execute("DELETE FROM buyers WHERE workspace_id = %s", (DEMO_WORKSPACE_ID,))
+        cur.execute("DELETE FROM audit_log WHERE workspace_id = %s", (DEMO_WORKSPACE_ID,))
         buyer_ids = []
         for b in buyers:
             cur.execute(
-                "INSERT INTO buyers (name, contact_name, phone, email) "
-                "VALUES (%s, %s, %s, %s) RETURNING id",
-                (b.name, b.contact_name, b.phone, b.email),   # %s placeholders: never f-strings in SQL
+                "INSERT INTO buyers (workspace_id, name, contact_name, phone, email) "
+                "VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                (DEMO_WORKSPACE_ID, b.name, b.contact_name, b.phone, b.email),   # %s placeholders: never f-strings in SQL
             )
             buyer_ids.append(cur.fetchone()[0])
 
         for inv in invoices:
             cur.execute(
-                "INSERT INTO invoices (buyer_id, invoice_no, issue_date, due_date, amount) "
-                "VALUES (%s, %s, %s, %s, %s) RETURNING id",
-                (buyer_ids[inv.buyer_index], inv.invoice_no, inv.issue_date, inv.due_date, inv.amount),
+                "INSERT INTO invoices (workspace_id, buyer_id, invoice_no, issue_date, due_date, amount) "
+                "VALUES (%s, %s, %s, %s, %s, %s) RETURNING id",
+                (DEMO_WORKSPACE_ID, buyer_ids[inv.buyer_index], inv.invoice_no, inv.issue_date,
+                 inv.due_date, inv.amount),
             )
             invoice_id = cur.fetchone()[0]
             for n, (paid_on, amount) in enumerate(inv.payments, start=1):

@@ -1,8 +1,10 @@
-# Collections Agent
+# LedgerWithLeisure
 
-An AI assistant that helps a small business get paid. It answers questions about who owes what (from Postgres), quotes the exact clause from each buyer's contract (RAG with pgvector), and drafts payment reminders that **the owner must approve** before anything goes out.
+An AI collections agent that helps a small business get paid. It answers questions about who owes what (from Postgres), quotes the exact clause from each buyer's contract (RAG with pgvector), and drafts payment reminders that **the owner must approve** before anything goes out.
 
-**The problem.** Razorpay's [Fix My Itch](https://razorpay.com/m/fix-my-itch/) list of problems Indian founders want solved includes micro-SMEs losing 10+ hours a week to invoice management, and SMEs struggling with payment terms from larger buyers. This project builds for one such business: Meera Packaging Solutions, a fictional Pune supplier with 40 buyers, 275 invoices and 40 written contracts.
+Each business gets its own **workspace**: import your buyers, invoices and payments from CSV files, upload contracts as PDFs, and ask questions about your own books. A ready-made demo workspace (Meera Packaging Solutions, a fictional Pune supplier) lets anyone try it straight away.
+
+**The problem.** Razorpay's [Fix My Itch](https://razorpay.com/m/fix-my-itch/) list of problems Indian founders want solved includes micro-SMEs losing 10+ hours a week to invoice management, and SMEs struggling with payment terms from larger buyers. The demo workspace is one such business: 40 buyers, 275 invoices and 40 written contracts.
 
 > Demo: `docs/demo.gif` (add your recording here)
 
@@ -20,8 +22,8 @@ An AI assistant that helps a small business get paid. It answers questions about
 
 ```mermaid
 flowchart LR
-    U([Owner]) --> UI[React web app]
-    UI -- HTTP --> API[FastAPI]
+    U([Team member]) --> UI[React web app]
+    UI -- "HTTP + session cookie" --> API[FastAPI + auth]
     API --> G[LangGraph agent]
     G <--> LLM[Groq: gpt-oss-120b]
     G --> T[6 fixed tools<br/>SQL we wrote]
@@ -67,6 +69,29 @@ All numbers are from `scripts/run_evals.py` on the sample data. Expected answers
 
 **What the first run taught us.** Of 5 failures, 4 were grader bugs (the model wrote curly apostrophes and non-breaking hyphens; one expected answer counted "more than 60 days" wrongly). The real problems: after an owner rejected a draft the agent kept redrafting (up to 24k tokens per request), and there was no tool to look up an invoice by number. After fixing both, reminder requests dropped to 8–11k tokens and **3/3 drafts passed validation on the first try**. Latency on the free tier is dominated by Groq's per-minute token limit, not the agent.
 
+## Workspaces and your own data
+
+Every business is a **workspace** with its own buyers, invoices, payments, contracts, reminders and conversations. New accounts join the read-only demo, and can create workspaces for their own businesses.
+
+**Isolation (multi-tenancy).** Every query filters by workspace, and the workspace always comes from the signed-in session, never from the request body or the LLM. Agent tools receive it through LangChain's injected `RunnableConfig`, which the model cannot see or set. The database enforces it too: a composite foreign key makes it impossible to attach an invoice to another workspace's buyer.
+
+**CSV import, built for messy client data.** It's forgiving about format and strict about meaning:
+- It accepts common column names ("Customer", "Invoice Number", "UTR"), Excel's BOM, day-first Indian dates (05/11/2026, 5 Nov 2026), and amounts like `₹1,24,347.50`.
+- Every row is validated first: unknown buyers (with "did you mean" suggestions), duplicates, due dates before invoice dates, bad amounts. **If any row fails, nothing is imported**, and the report lists each problem by row number.
+- It's safe to repeat: buyers and invoices are updated rather than duplicated, and a payment already imported is skipped (unique index), so balances never double count.
+
+**Contracts** (PDF, .txt or .md) are text-extracted with `pypdf`, split by Markdown headings or numbered clauses (falling back to paragraph packing for unstructured text), embedded locally, and searchable only within their workspace.
+
+## Accounts
+
+Each person signs up with a name, email and password, gets their own greeting and private conversations, and every reminder approval or rejection records who made it.
+
+- Passwords are hashed with **Argon2id**; plain passwords are never stored.
+- Sign-in creates a random session token sent in an **httpOnly, SameSite=Lax cookie**. The database stores only a SHA-256 hash of it, and signing out deletes it immediately.
+- A wrong email and a wrong password get the **same error**, and take about the same time, so accounts can't be discovered by probing.
+- **Authorization:** each conversation belongs to the user who started it. Asking for someone else's gets the same 404 as a missing one.
+- Who approved a reminder comes from the session, **never from the request body**.
+
 ## Guardrails
 
 Layered, from softest to hardest:
@@ -92,6 +117,9 @@ Layered, from softest to hardest:
 | Fixed "today" (2026-11-15) | Eval answers never drift day to day | The demo world is frozen in time |
 | Deterministic grading, not LLM-as-judge | Free, repeatable, can't be fooled by fluent text | Can't judge tone; that's left to validation and the owner |
 | React front end calling the API only, via a same-origin proxy | Any client (web, mobile, a CRM) can reuse the API; no CORS configuration | Two apps to build and deploy instead of one |
+| Shared tables with a `workspace_id`, not a database per business | One schema to migrate; simple at this scale; composite foreign keys stop cross-workspace links | Every query must filter correctly, so it's covered by an isolation test suite; Postgres row-level security would add a second layer |
+| All-or-nothing CSV import with a row-level report | Partial imports leave books half-right and hard to fix | One bad row blocks the file until fixed |
+| Server-side sessions in an httpOnly cookie, not JWTs in localStorage | JavaScript can't read the token (XSS), and sign-out revokes it instantly | One database lookup per request |
 | Langfuse Cloud, not self-hosted | Self-hosting needs ClickHouse and ~16 GB RAM | Data leaves the machine; a client with data-residency rules would self-host |
 
 ## Run it
@@ -111,11 +139,19 @@ Open the app at http://localhost:8080 and the API docs at http://localhost:8000/
 docker compose up -d db
 python -m venv .venv && .venv\Scripts\activate      # macOS/Linux: source .venv/bin/activate
 pip install -r requirements.txt
+python -m scripts.migrate
 python -m scripts.seed_data
 python -m scripts.ingest_contracts
 uvicorn app.api:app --reload          # terminal 1
 cd web && npm install && npm run dev  # terminal 2, then open http://localhost:5173
 python -m scripts.chat                # or chat in the terminal
+```
+
+**Automatic checks (no LLM calls):**
+
+```bash
+python -m scripts.check_auth
+python -m scripts.check_workspaces
 ```
 
 **Evals:**
@@ -136,23 +172,33 @@ app/
   tools.py       the business logic: SQL tools, contract search, draft validation
   embeddings.py  local embedding model
   agent.py       LangGraph graph, tool wrappers, system prompt, checkpointer
+  auth.py        accounts, password hashing, sessions, current_user()
+  migrations.py  applies db/migrations/*.sql to an existing database
+  workspaces.py  workspaces, switching, CSV import and contract upload endpoints
+  importer.py    CSV parsing and validation (aliases, Indian dates and amounts, row reports)
+  contracts.py   PDF/text extraction, chunking, embedding and storage
   api.py         FastAPI endpoints
 web/             React + TypeScript front end (Vite), served by nginx in Docker
   src/App.tsx         conversation state and API calls
-  src/components/     message, approval card, composer, reminders panel
+  src/components/     sign-in, message, approval card, composer, reminders panel
   src/styles.css      the whole theme as CSS variables (sage and clay)
 scripts/
   seed_data.py         generates buyers, invoices, payments, contracts, ground truth
   ingest_contracts.py  chunk, embed and store contracts
   chat.py              terminal chat with approvals
   run_evals.py         eval runner and report
+  check_auth.py        automatic checks: accounts and sessions (no LLM calls)
+  check_workspaces.py  automatic checks: imports, uploads and workspace isolation
 evals/cases.py   the eval set
-db/init/         schema, view and indexes
+db/init/         schema, view and indexes (runs once, on a new database)
+db/migrations/   later changes: accounts and sessions, then workspaces
 ```
 
 ## Limitations and next steps
 
-- Sample data only, and a single business. Multi-tenancy would add a `tenant_id` to every table and row-level security in Postgres.
+- No invitations yet: a workspace has only its creator. Next: invite teammates by email.
+- No login rate limiting, email verification or password reset yet.
+- Scanned PDFs need OCR before upload.
 - Reminders are approved but not sent. Next: WhatsApp or email delivery behind the same approval step.
 - The "payment habit" measure only counts fully paid invoices, so it hides buyers who always pay partially.
 - On Groq's free tier, latency spikes come from rate limits. A paid tier or a second provider as fallback would fix this; the model is one setting in `.env`.

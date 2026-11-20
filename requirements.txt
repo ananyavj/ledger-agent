@@ -15,6 +15,11 @@ langgraph-checkpoint-postgres>=3.0
 psycopg-pool>=3.2
 # Local embeddings with ONNX (no PyTorch): BAAI/bge-small-en-v1.5
 fastembed>=0.4
+# Password hashing (Argon2id)
+argon2-cffi>=23.1
+# Reading uploaded PDF contracts, and receiving file uploads in FastAPI
+pypdf>=5.0
+python-multipart>=0.0.9
 # HTTP API and its server
 fastapi>=0.115
 uvicorn[standard]>=0.30
