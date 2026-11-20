@@ -1,8 +1,10 @@
 """The only module that opens database connections.
 
-Every query goes through `query()`, so connection handling lives in one place.
-Later, swapping in a connection pool means changing this file only.
+Reads go through `query()`, writes through `transaction()`, so connection handling
+lives in one place. Swapping in a connection pool later means changing this file only.
 """
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 import psycopg
@@ -20,3 +22,11 @@ def query(sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]
     with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
         conn.read_only = True
         return conn.execute(sql, params).fetchall()
+
+
+@contextmanager
+def transaction() -> Iterator[psycopg.Connection]:
+    """A connection for writes. Everything inside the `with` block commits together,
+    or, if anything raises, rolls back together."""
+    with psycopg.connect(DATABASE_URL, row_factory=dict_row) as conn:
+        yield conn

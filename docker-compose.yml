@@ -1,3 +1,6 @@
+# Whole app:      docker compose up -d --build
+# Load the data:  docker compose --profile setup run --rm setup     (first time only)
+# Then open:      http://localhost:8080 (app)   http://localhost:8000/docs (API)
 services:
   db:
     # Official Postgres with the pgvector extension pre-installed
@@ -21,6 +24,42 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  api:
+    build: .
+    container_name: collections-api
+    env_file: .env            # API keys come from your .env at run time, never baked into the image
+    environment:
+      # Inside Docker's network the database is the service "db" on its own port 5432
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    # React app, built once and served by nginx, which also forwards /api/... to the API
+    build: ./web
+    container_name: collections-web
+    ports:
+      - "8080:80"
+    depends_on:
+      - api
+
+  # One-off job: create the sample data and index the contracts
+  setup:
+    build: .
+    profiles: ["setup"]
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_PORT: "5432"
+    command: ["sh", "-c", "python -m scripts.seed_data && python -m scripts.ingest_contracts"]
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:

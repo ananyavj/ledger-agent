@@ -1,0 +1,103 @@
+{
+  "run_at": "2026-11-20T11:53:45",
+  "retrieval": {
+    "questions": 185,
+    "hit_at_1": 0.924,
+    "hit_at_3": 1.0,
+    "mrr": 0.961,
+    "hit_at_1_by_section": {
+      "Payment terms": 0.675,
+      "Late payment": 1.0,
+      "Early payment": 0.96,
+      "Disputes": 1.0,
+      "Termination": 1.0
+    },
+    "median_search_ms": 74.6,
+    "misses": [
+      {
+        "buyer": "Kulkarni Foods",
+        "question": "What is the credit period?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Kulkarni Foods. Section: 4. Late payment"
+      },
+      {
+        "buyer": "Patil Sweets & Farsan",
+        "question": "What is the credit period?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Patil Sweets & Farsan. Section: 4. Late payment"
+      },
+      {
+        "buyer": "Joshi Electricals",
+        "question": "How many days does the buyer have to pay an invoice?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Joshi Electricals. Section: 5. Early payment"
+      },
+      {
+        "buyer": "Shree Ganesh Bakery",
+        "question": "What is the credit period?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Shree Ganesh Bakery. Section: 4. Late payment"
+      },
+      {
+        "buyer": "Iyer Spice Exports",
+        "question": "How many days does the buyer have to pay an invoice?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Iyer Spice Exports. Section: 5. Early payment"
+      },
+      {
+        "buyer": "Sai Krupa Snacks",
+        "question": "What is the credit period?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Sai Krupa Snacks. Section: 4. Late payment"
+      },
+      {
+        "buyer": "Fernandes Bakehouse",
+        "question": "What is the credit period?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Fernandes Bakehouse. Section: 5. Early payment"
+      },
+      {
+        "buyer": "Mahalaxmi Pickles",
+        "question": "What is the credit period?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Mahalaxmi Pickles. Section: 4. Late payment"
+      },
+      {
+        "buyer": "Kapoor Gifts",
+        "question": "What is the credit period?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Kapoor Gifts. Section: 4. Late payment"
+      },
+      {
+        "buyer": "Kapoor Gifts",
+        "question": "prompt payment discount",
+        "expected": "Early payment",
+        "got_top": "Contract with Kapoor Gifts. Section: 4. Late payment"
+      },
+      {
+        "buyer": "Nair Coconut Products",
+        "question": "What is the credit period?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Nair Coconut Products. Section: 4. Late payment"
+      },
+      {
+        "buyer": "Malhotra Leather Goods",
+        "question": "How many days does the buyer have to pay an invoice?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Malhotra Leather Goods. Section: 5. Early payment"
+      },
+      {
+        "buyer": "Kale Organic Farms",
+        "question": "What is the credit period?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Kale Organic Farms. Section: 4. Late payment"
+      },
+      {
+        "buyer": "Wagh Engineering Works",
+        "question": "What is the credit period?",
+        "expected": "Payment terms",
+        "got_top": "Contract with Wagh Engineering Works. Section: 4. Late payment"
+      }
+    ]
+  }
+}

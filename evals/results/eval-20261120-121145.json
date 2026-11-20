@@ -1,0 +1,87 @@
+{
+  "run_at": "2026-11-20T12:09:57",
+  "agent": {
+    "model": "openai/gpt-oss-120b",
+    "cases": 3,
+    "accuracy": 1.0,
+    "accuracy_by_category": {
+      "reminder": "3/3"
+    },
+    "tool_selection_accuracy": 1.0,
+    "latency_p50_s": 27.76,
+    "latency_p95_s": 31.23,
+    "avg_llm_calls": 4.33,
+    "avg_tokens_per_question": 9192,
+    "avg_cost_per_question_usd": 0.001833,
+    "reminder_drafts_passing_validation_first_try": "3/3",
+    "results": [
+      {
+        "id": "reminder-01",
+        "category": "reminder",
+        "question": "Draft a firm reminder for invoice INV-2026-0012.",
+        "passed": true,
+        "failures": [],
+        "answer": "The draft was rejected. What would you like changed or added?",
+        "tools_called": [
+          "invoice_details",
+          "buyer_summary",
+          "propose_reminder"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 4,
+        "seconds": 4.37,
+        "tokens_in": 7370,
+        "tokens_out": 432,
+        "cost_usd": 0.001429,
+        "drafts_reaching_approval": 1,
+        "draft_attempts": 1,
+        "validation_problems": []
+      },
+      {
+        "id": "reminder-02",
+        "category": "reminder",
+        "question": "Draft a gentle reminder for Sharma Traders' oldest overdue invoice.",
+        "passed": true,
+        "failures": [],
+        "answer": "The draft was rejected. What would you like changed in the reminder?",
+        "tools_called": [
+          "overdue_invoices",
+          "buyer_summary",
+          "propose_reminder"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 4,
+        "seconds": 27.76,
+        "tokens_in": 8203,
+        "tokens_out": 557,
+        "cost_usd": 0.001648,
+        "drafts_reaching_approval": 1,
+        "draft_attempts": 1,
+        "validation_problems": []
+      },
+      {
+        "id": "reminder-03",
+        "category": "reminder",
+        "question": "Send a final notice for invoice INV-2026-0146.",
+        "passed": true,
+        "failures": [],
+        "answer": "The draft reminder for invoice INV‑2026‑0146 was rejected.\n\n- It was a “firm”‑tone notice.\n- It listed the buyer’s contact Divya Shinde.\n- It stated the invoice date 18 July 2026, due date 16 September 2026, balance ₹80,767 and 60 days overdue.\n- No late‑payment fee was included (contract allows 1.5 % per month after a 5‑day grace period).  \n\nWhat would you like changed in the reminder?",
+        "tools_called": [
+          "invoice_details",
+          "contract_search",
+          "buyer_summary",
+          "propose_reminder"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 5,
+        "seconds": 31.23,
+        "tokens_in": 9732,
+        "tokens_out": 1283,
+        "cost_usd": 0.002422,
+        "drafts_reaching_approval": 1,
+        "draft_attempts": 1,
+        "validation_problems": []
+      }
+    ]
+  }
+}

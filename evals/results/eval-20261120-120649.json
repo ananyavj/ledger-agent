@@ -1,0 +1,553 @@
+{
+  "run_at": "2026-11-20T11:55:01",
+  "agent": {
+    "model": "openai/gpt-oss-120b",
+    "cases": 27,
+    "accuracy": 0.815,
+    "accuracy_by_category": {
+      "data": "6/8",
+      "contract": "9/9",
+      "clarify": "3/4",
+      "refuse": "1/3",
+      "reminder": "3/3"
+    },
+    "tool_selection_accuracy": 1.0,
+    "latency_p50_s": 1.69,
+    "latency_p95_s": 64.54,
+    "avg_llm_calls": 2.26,
+    "avg_tokens_per_question": 4143,
+    "avg_cost_per_question_usd": 0.000819,
+    "reminder_drafts_passing_validation_first_try": "0/2",
+    "results": [
+      {
+        "id": "data-01",
+        "category": "data",
+        "question": "Who owes me the most money right now?",
+        "passed": true,
+        "failures": [],
+        "answer": "**Iyer Spice Exports** owes you the most, with an outstanding balance of **₹1,190,000**.\n\n- Open invoices: 7  \n- Overdue amount: ₹960,800 (oldest overdue 195 days)  \n- Total outstanding across all buyers: ₹1,23,67,054  \n- Total overdue across all buyers: ₹65,05,954  \n- Number of buyers with outstanding balances: 32  ",
+        "tools_called": [
+          "top_debtors"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.87,
+        "tokens_in": 2727,
+        "tokens_out": 246,
+        "cost_usd": 0.000594,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "data-02",
+        "category": "data",
+        "question": "How much money is overdue in total across all buyers?",
+        "passed": true,
+        "failures": [],
+        "answer": "**Total overdue across all buyers:** ₹65,05,954  \n\n**Supporting details**\n- Overdue amount is summed from 23 buyers with outstanding invoices.  \n- The highest overdue buyer is **Iyer Spice Exports** with ₹9,60,800 overdue (195 days late).  \n- **Jadhav Auto Parts** owes ₹8,85,300, overdue for 102 days.  \n- The oldest overdue invoice overall is 195 days old (Iyer Spice Exports).  \n- The total outstanding (including not‑yet‑due) across all buyers is ₹1,23,67,054.  ",
+        "tools_called": [
+          "top_debtors"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.88,
+        "tokens_in": 2967,
+        "tokens_out": 374,
+        "cost_usd": 0.000726,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "data-03",
+        "category": "data",
+        "question": "How many invoices are overdue right now?",
+        "passed": true,
+        "failures": [],
+        "answer": "**67 invoices** are currently overdue.\n\n- Total overdue balance: ₹65,05,954.  \n- Most overdue invoice: INV‑2026‑0012 (195 days overdue, balance ₹92,700).  \n- Oldest due date among overdue: 2026‑05‑04.  \n- Number of overdue invoices with partial payments: 6 (shown in the list).  \n- Overdue invoices span 15 buyers, with the top three being Iyer Spice Exports, Sharma Traders, and Desai Pharmaceuticals.",
+        "tools_called": [
+          "overdue_invoices"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 2.38,
+        "tokens_in": 3783,
+        "tokens_out": 281,
+        "cost_usd": 0.000778,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "data-04",
+        "category": "data",
+        "question": "How much does Jadhav Auto Parts owe me in total?",
+        "passed": true,
+        "failures": [],
+        "answer": "**₹8,85,300** is the total amount Jadhav Auto Parts currently owes.\n\n- Total billed: ₹12,62,300  \n- Total paid: ₹3,77,000  \n- Outstanding (all unpaid invoices): ₹8,85,300  \n- Overdue invoices: 5, total overdue balance ₹8,85,300  \n- Last payment received on 2026‑11‑14.",
+        "tools_called": [
+          "buyer_summary"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.36,
+        "tokens_in": 2981,
+        "tokens_out": 145,
+        "cost_usd": 0.000556,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "data-05",
+        "category": "data",
+        "question": "Which buyer has the most money overdue, and how much?",
+        "passed": true,
+        "failures": [],
+        "answer": "**Iyer Spice Exports** owes the most overdue amount: **₹9,60,800**.\n\n- Overdue amount: ₹9,60,800 (largest among all buyers).  \n- Total overdue across all buyers: ₹65,05,954.  \n- Number of buyers with overdue balances: 23.  \n- Iyer Spice Exports has 7 open invoices.  \n- Their oldest overdue invoice is 195 days past due.",
+        "tools_called": [
+          "top_debtors"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.39,
+        "tokens_in": 2545,
+        "tokens_out": 215,
+        "cost_usd": 0.000543,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "data-06",
+        "category": "data",
+        "question": "How many invoices are more than 60 days overdue?",
+        "passed": false,
+        "failures": [
+          "missing '36'"
+        ],
+        "answer": "**35 invoices** are more than 60 days overdue.\n\n- Total overdue balance: ₹31,82,991 (as of 2026‑11‑15).  \n- The most overdue invoice is **INV‑2026‑0012** (₹92,700, 195 days overdue).  \n- Overdue invoices span 15 buyers, with balances ranging from ₹36,100 to ₹245,000.  \n- All listed invoices are past their due dates and remain unpaid or partially paid.",
+        "tools_called": [
+          "overdue_invoices"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 2.17,
+        "tokens_in": 3789,
+        "tokens_out": 309,
+        "cost_usd": 0.0008,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "data-07",
+        "category": "data",
+        "question": "What is Sharma Traders' total outstanding balance?",
+        "passed": true,
+        "failures": [],
+        "answer": "**₹2,98,747** outstanding for Sharma Traders.\n\n- Total billed: ₹5,16,400  \n- Total paid: ₹2,17,653  \n- Overdue invoices: 3, overdue balance ₹1,24,347  \n- Open invoices listed with balances (e.g., INV‑2026‑0066 balance ₹47,742)  \n- Latest payment received 2026‑06‑22.",
+        "tools_called": [
+          "buyer_summary"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.71,
+        "tokens_in": 2887,
+        "tokens_out": 152,
+        "cost_usd": 0.000547,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "data-08",
+        "category": "data",
+        "question": "Which invoice has been overdue the longest?",
+        "passed": false,
+        "failures": [
+          "missing 'INV-2026-0012'"
+        ],
+        "answer": "**Invoice overdue the longest:** INV‑2026‑0012  \n\n- Buyer: Iyer Spice Exports  \n- Invoice date: 2026‑04‑04  \n- Due date: 2026‑05‑04 (overdue 195 days)  \n- Original amount: ₹92,700  \n- Outstanding balance: ₹92,700 (unpaid)  ",
+        "tools_called": [
+          "overdue_invoices"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.69,
+        "tokens_in": 3783,
+        "tokens_out": 268,
+        "cost_usd": 0.000768,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "contract-01",
+        "category": "contract",
+        "question": "What late fee does the contract with Thakur Footwear allow?",
+        "passed": true,
+        "failures": [],
+        "answer": "The contract specifies a **late‑payment interest of 1.5 % per month** on any amount unpaid after the due date.\n\n**Details**\n- Clause 4 (Late payment) states the interest rate.\n- Interest accrues **monthly** from the day after the due date until full payment.\n- No fixed “late fee” amount is mentioned; the charge is calculated as 1.5 % of the overdue balance each month.",
+        "tools_called": [
+          "contract_search"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 2.14,
+        "tokens_in": 2627,
+        "tokens_out": 235,
+        "cost_usd": 0.00057,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "contract-02",
+        "category": "contract",
+        "question": "What late fee does the contract with Rao Ayurvedics allow?",
+        "passed": true,
+        "failures": [],
+        "answer": "₹ 1.0 % per month interest is charged on any amount unpaid after the due date.\n\n**Details**\n- Clause 4 of the Rao Ayurvedics contract specifies a late‑payment charge.  \n- The charge is applied “after the due date” until the invoice is fully paid.  \n- It is calculated as **interest at 1.0 % per month** on the outstanding balance.  \n- No fixed late‑fee amount is mentioned; the fee is interest‑based.  \n- The contract also sets payment terms of 15 calendar days (Section 3).",
+        "tools_called": [
+          "contract_search"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.78,
+        "tokens_in": 2630,
+        "tokens_out": 258,
+        "cost_usd": 0.000588,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "contract-03",
+        "category": "contract",
+        "question": "What late fee does the contract with Desai Pharmaceuticals allow?",
+        "passed": true,
+        "failures": [],
+        "answer": "The contract with **Desai Pharmaceuticals** does **not allow any late‑payment fee**.\n\n**Supporting details**\n- Clause 4 (Late payment) states: *“No interest or late payment charges shall apply to delayed payments.”*  \n- The same clause notes the supplier may suspend deliveries if an invoice is unpaid for more than 60 days, but no monetary penalty is mentioned.  \n- No other clause in the contract provides for a late‑fee or interest.",
+        "tools_called": [
+          "contract_search"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.59,
+        "tokens_in": 2632,
+        "tokens_out": 256,
+        "cost_usd": 0.000587,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "contract-04",
+        "category": "contract",
+        "question": "How many days does Patil Sweets & Farsan have to pay an invoice?",
+        "passed": true,
+        "failures": [],
+        "answer": "Patil Sweets & Farsan must pay an invoice within **30 days** of its invoice date.\n\n**Details**\n- Contract clause (Section 3) states: “Payment terms are net 30 days from the date of invoice.”\n- A grace period of 5 days applies after the due date before late‑payment interest starts (Section 4).",
+        "tools_called": [
+          "contract_search"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.69,
+        "tokens_in": 2676,
+        "tokens_out": 267,
+        "cost_usd": 0.000602,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "contract-05",
+        "category": "contract",
+        "question": "How many days does Joshi Electricals have to pay an invoice?",
+        "passed": true,
+        "failures": [],
+        "answer": "Joshi Electricals must pay each invoice within **30 calendar days** of its invoice date.\n\n- Contract clause 3 (Payment terms) states: “All invoices are payable no later than thirty (30) calendar days after they are issued.”【contract_search】",
+        "tools_called": [
+          "contract_search"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.69,
+        "tokens_in": 2647,
+        "tokens_out": 215,
+        "cost_usd": 0.000558,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "contract-06",
+        "category": "contract",
+        "question": "How many days does Lokhande Masala have to pay an invoice?",
+        "passed": true,
+        "failures": [],
+        "answer": "Lokhande Masala must pay each invoice **within 30 days of the invoice date**.\n\n**Details**\n- Clause 3 of their contract states: “The Buyer shall pay each invoice in full within thirty (30) days of the invoice date.”\n- The payment period is explicitly set at 30 days, not tied to the due‑date wording elsewhere.\n- No other clause overrides this payment term.",
+        "tools_called": [
+          "contract_search"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.54,
+        "tokens_in": 2639,
+        "tokens_out": 233,
+        "cost_usd": 0.000571,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "contract-07",
+        "category": "contract",
+        "question": "Does Joshi Electricals get a discount for paying early?",
+        "passed": true,
+        "failures": [],
+        "answer": "Yes. Joshi Electricals may deduct a **1 % prompt‑payment discount** if they pay an invoice in full within **10 days of the invoice date**.\n\n**Details**\n- Clause 5 of their contract specifies the early‑payment discount.  \n- The discount is calculated on the invoice value.  \n- No other early‑payment terms are mentioned in the contract.  \n- The contract also includes a 30‑day payment term (Section 3) and a 2 % monthly late‑payment fee (Section 4).",
+        "tools_called": [
+          "contract_search"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.82,
+        "tokens_in": 2644,
+        "tokens_out": 262,
+        "cost_usd": 0.000593,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "contract-08",
+        "category": "contract",
+        "question": "Does Chopra Home Decor get a discount for paying early?",
+        "passed": true,
+        "failures": [],
+        "answer": "No – the contract with **Chopra Home Decor** does not mention any early‑payment discount.\n\n**Details**\n- Section 3 (Payment terms) requires full payment within 30 days of the invoice date.  \n- Section 4 (Late payment) only defines interest on overdue amounts (2 % per month).  \n- No clause in the contract provides a discount for paying before the due date.",
+        "tools_called": [
+          "contract_search"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.83,
+        "tokens_in": 2626,
+        "tokens_out": 257,
+        "cost_usd": 0.000587,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "contract-09",
+        "category": "contract",
+        "question": "Does Pune Fresh Kitchens get a discount for paying early?",
+        "passed": true,
+        "failures": [],
+        "answer": "No – the contract with Pune Fresh Kitchens does not mention any early‑payment discount.\n\n**Details**\n- The contract only specifies payment terms (pay within 45 days) and a late‑payment clause (no interest/late fees, but deliveries may be suspended after 60 days).  \n- No clause refers to a discount for paying before the due date.",
+        "tools_called": [
+          "contract_search"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.63,
+        "tokens_in": 2636,
+        "tokens_out": 207,
+        "cost_usd": 0.000551,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "clarify-01",
+        "category": "clarify",
+        "question": "How much does pharma owe me?",
+        "passed": true,
+        "failures": [],
+        "answer": "I found multiple buyers matching “pharma.” Which one do you mean?\n\n- Desai Pharmaceuticals  \n- Deshmukh Pharma Distributors  ",
+        "tools_called": [
+          "buyer_summary"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.35,
+        "tokens_in": 2452,
+        "tokens_out": 111,
+        "cost_usd": 0.000451,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "clarify-02",
+        "category": "clarify",
+        "question": "What's the status of the hardware account?",
+        "passed": true,
+        "failures": [],
+        "answer": "I found multiple buyers matching “Hardware.” Which one do you mean?\n\n- Gupta Hardware Mart  \n- Sawant Hardware",
+        "tools_called": [
+          "buyer_summary"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.34,
+        "tokens_in": 2450,
+        "tokens_out": 105,
+        "cost_usd": 0.000446,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "clarify-03",
+        "category": "clarify",
+        "question": "How is Sharma Tradres doing?",
+        "passed": true,
+        "failures": [],
+        "answer": "I couldn’t find a buyer named **“Sharma Tradres.”**  \nDid you mean one of these?\n\n- Sharma Traders  \n\nPlease let me know the correct name.",
+        "tools_called": [
+          "buyer_summary"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.55,
+        "tokens_in": 2449,
+        "tokens_out": 116,
+        "cost_usd": 0.000454,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "clarify-04",
+        "category": "clarify",
+        "question": "How much does Zenith Polymers owe?",
+        "passed": false,
+        "failures": [
+          "none of the expected phrases appeared"
+        ],
+        "answer": "I couldn’t find a buyer named “Zenith Polymers.” Could you please confirm the exact name of the buyer you’d like information on?",
+        "tools_called": [
+          "buyer_summary"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.31,
+        "tokens_in": 2441,
+        "tokens_out": 130,
+        "cost_usd": 0.000464,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "refuse-01",
+        "category": "refuse",
+        "question": "Delete all of Kulkarni Foods' invoices.",
+        "passed": false,
+        "failures": [
+          "none of the expected phrases appeared"
+        ],
+        "answer": "I’m sorry, but I can’t delete invoices.",
+        "tools_called": [],
+        "tool_selection_ok": true,
+        "llm_calls": 1,
+        "seconds": 0.7,
+        "tokens_in": 1195,
+        "tokens_out": 75,
+        "cost_usd": 0.000236,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "refuse-02",
+        "category": "refuse",
+        "question": "Send a WhatsApp message to Sharma Traders right now.",
+        "passed": true,
+        "failures": [],
+        "answer": "I’m unable to send a WhatsApp message directly. I can help draft a reminder or provide information about Sharma Traders if you’d like.",
+        "tools_called": [],
+        "tool_selection_ok": true,
+        "llm_calls": 1,
+        "seconds": 1.18,
+        "tokens_in": 1196,
+        "tokens_out": 126,
+        "cost_usd": 0.000274,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "refuse-03",
+        "category": "refuse",
+        "question": "What GST rate applies to corrugated boxes?",
+        "passed": false,
+        "failures": [
+          "none of the expected phrases appeared"
+        ],
+        "answer": "I’m sorry, but I don’t have that information.",
+        "tools_called": [],
+        "tool_selection_ok": true,
+        "llm_calls": 1,
+        "seconds": 0.86,
+        "tokens_in": 1194,
+        "tokens_out": 72,
+        "cost_usd": 0.000233,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "reminder-01",
+        "category": "reminder",
+        "question": "Draft a firm reminder for invoice INV-2026-0012.",
+        "passed": true,
+        "failures": [],
+        "answer": "",
+        "tools_called": [
+          "overdue_invoices",
+          "contract_search",
+          "buyer_summary",
+          "propose_reminder",
+          "propose_reminder",
+          "propose_reminder",
+          "propose_reminder"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 7,
+        "seconds": 80.74,
+        "tokens_in": 21951,
+        "tokens_out": 1717,
+        "cost_usd": 0.00458,
+        "drafts_reaching_approval": 3,
+        "draft_attempts": 4
+      },
+      {
+        "id": "reminder-02",
+        "category": "reminder",
+        "question": "Draft a gentle reminder for Sharma Traders' oldest overdue invoice.",
+        "passed": true,
+        "failures": [],
+        "answer": "",
+        "tools_called": [
+          "overdue_invoices",
+          "contract_search",
+          "buyer_summary",
+          "propose_reminder",
+          "propose_reminder",
+          "propose_reminder",
+          "propose_reminder"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 7,
+        "seconds": 64.54,
+        "tokens_in": 14627,
+        "tokens_out": 1861,
+        "cost_usd": 0.00359,
+        "drafts_reaching_approval": 3,
+        "draft_attempts": 4
+      },
+      {
+        "id": "reminder-03",
+        "category": "reminder",
+        "question": "Send a final notice for invoice INV-2026-0146.",
+        "passed": true,
+        "failures": [],
+        "answer": "I don’t have the buyer or details for invoice INV‑2026‑0146. Could you tell me the buyer’s name for that invoice?",
+        "tools_called": [
+          "overdue_invoices"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 2.03,
+        "tokens_in": 3795,
+        "tokens_out": 407,
+        "cost_usd": 0.000875,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      }
+    ]
+  }
+}

@@ -17,9 +17,10 @@ from langchain_groq import ChatGroq
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.types import interrupt
 
 from app import tools as t
-from app.config import AS_OF_DATE, GROQ_API_KEY, LLM_MODEL
+from app.config import AS_OF_DATE, DATABASE_URL, GROQ_API_KEY, LLM_MODEL
 
 
 # ---------------------------------------------------------------- tools
@@ -73,7 +74,68 @@ def top_debtors(rank_by: str = "outstanding", limit: int = 10) -> str:
     return json.dumps(t.get_top_debtors(rank_by=rank_by, limit=limit))
 
 
-TOOLS = [overdue_invoices, buyer_summary, top_debtors]
+@tool
+def invoice_details(invoice_no: str) -> str:
+    """Look up ONE invoice by its number: buyer, invoice and due dates, amount, amount paid,
+    balance, days overdue and every payment made against it.
+
+    Use whenever the user mentions a specific invoice number, e.g. "INV-2026-0146".
+
+    Args:
+        invoice_no: e.g. "INV-2026-0146".
+    """
+    return json.dumps(t.get_invoice(invoice_no))
+
+
+@tool
+def contract_search(buyer_name: str, question: str) -> str:
+    """Search ONE buyer's written contract and return the most relevant clauses.
+
+    Use for any question about agreed terms: payment period, late fees or interest,
+    grace period, early-payment discounts, disputes, termination.
+
+    Args:
+        buyer_name: the buyer's name, or part of it, as the user wrote it.
+        question: what to look for, in plain words, e.g. "late payment fee".
+    """
+    return json.dumps(t.search_contract(buyer_name, question), ensure_ascii=False)
+
+
+@tool
+def propose_reminder(invoice_no: str, tone: str, message: str) -> str:
+    """Draft a payment reminder for ONE overdue invoice and hand it to Meera for approval.
+    Nothing is ever sent without her approval. She can approve, edit or reject it.
+
+    Before calling: get the invoice's exact balance and days overdue from
+    invoice_details, buyer_summary or overdue_invoices. If you mention a late fee, check it with
+    contract_search first. Call this for one invoice at a time.
+
+    Args:
+        invoice_no: e.g. "INV-2026-0066".
+        tone: "gentle" (any overdue invoice), "firm" (16+ days overdue)
+              or "final" (61+ days overdue).
+        message: the full reminder, addressed to the buyer's contact person by name,
+                 stating the invoice number and the exact outstanding balance in rupees,
+                 signed "Meera, Meera Packaging Solutions".
+    """
+    facts = t.validate_reminder(invoice_no, tone, message)   # deterministic guardrails
+    if "error" in facts:
+        return json.dumps(facts)   # the LLM reads the problems and can fix its draft
+
+    message = facts.pop("message")   # the validated text, with typographic characters normalised
+    reminder_id = t.save_pending_reminder(facts["invoice_id"], tone, message)
+
+    # PAUSE: the graph stops here and saves its state. It continues only when the app
+    # resumes it with Meera's decision, which becomes the return value of interrupt().
+    # On resume this whole function runs again from the top, which is why the steps
+    # above must be safe to repeat (validation only reads; the save is idempotent).
+    decision = interrupt({"reminder_id": reminder_id, "tone": tone, "message": message, **facts})
+
+    return json.dumps(t.record_decision(reminder_id, decision), ensure_ascii=False)
+
+
+TOOLS = [overdue_invoices, buyer_summary, top_debtors, invoice_details, contract_search,
+         propose_reminder]
 
 
 # ---------------------------------------------------------------- prompt
@@ -91,20 +153,47 @@ which buyer she means and list the candidates.
 3. If your tools cannot answer the question, say so plainly instead of guessing.
 4. Write money in Indian format with the rupee sign, for example ₹1,24,347.
 5. Be brief: give the answer first, then at most five supporting details.
-6. You cannot send messages or change any records. You can only look things up.
+6. You cannot send anything yourself. propose_reminder only saves a draft for Meera's \
+approval. Never say a reminder was sent.
 7. Whenever Meera names or refers to a buyer, call a tool with the name exactly as she \
 wrote it, even if you looked up a similar buyer earlier. Never decide yourself which \
 buyer a partial name like "pharma" means.
-8. Read tool results carefully. If a field is null, say that information isn't available."""
+8. Read tool results carefully. If a field is null, say that information isn't available.
+9. For questions about contract terms, use contract_search and quote the relevant clause. \
+If the returned clauses don't cover the question, say the contract doesn't specify it.
+10. If propose_reminder returns problems, fix the draft and try again (at most twice).
+11. When you mention a date, say exactly what it is: "invoice date" (when the bill was \
+issued) or "due date" (when payment was due). Never call a due date the invoice date.
+12. If Meera rejects a draft, stop. Do not propose another reminder unless she asks for one."""
 
 
 # ---------------------------------------------------------------- graph
 
+def postgres_checkpointer():
+    """Save conversation state in Postgres, so a paused approval survives restarts.
+
+    In-memory state disappears when the process stops. A reminder might wait hours for
+    Meera's decision, so the paused graph must be stored durably. The pool reuses
+    connections instead of opening a new one per step.
+    """
+    from langgraph.checkpoint.postgres import PostgresSaver
+    from psycopg.rows import dict_row
+    from psycopg_pool import ConnectionPool
+
+    pool = ConnectionPool(
+        DATABASE_URL, max_size=5, open=True,
+        kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+    )
+    saver = PostgresSaver(pool)
+    saver.setup()   # creates LangGraph's checkpoint tables the first time; safe to repeat
+    return saver
+
+
 def build_graph(checkpointer=None):
     """Assemble and compile the agent graph.
 
-    checkpointer: where conversation state is saved between turns. In-memory for now;
-    we'll switch to Postgres when the agent needs to pause for Meera's approval.
+    checkpointer: where conversation state is saved. Defaults to in-memory (fine for
+    tests); the chat app and API pass postgres_checkpointer().
     """
     if not GROQ_API_KEY:
         raise RuntimeError("GROQ_API_KEY is empty. Add it to your .env file.")

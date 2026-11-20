@@ -1,0 +1,77 @@
+{
+  "run_at": "2026-11-20T11:54:06",
+  "agent": {
+    "model": "openai/gpt-oss-120b",
+    "cases": 3,
+    "accuracy": 1.0,
+    "accuracy_by_category": {
+      "data": "3/3"
+    },
+    "tool_selection_accuracy": 1.0,
+    "latency_p50_s": 1.81,
+    "latency_p95_s": 1.87,
+    "avg_llm_calls": 2,
+    "avg_tokens_per_question": 3732,
+    "avg_cost_per_question_usd": 0.000739,
+    "reminder_drafts_passing_validation_first_try": "0/0",
+    "results": [
+      {
+        "id": "data-01",
+        "category": "data",
+        "question": "Who owes me the most money right now?",
+        "passed": true,
+        "failures": [],
+        "answer": "**Iyer Spice Exports** owes you the most, with an outstanding balance of **₹1,190,000**.\n\n- Open invoices: 7  \n- Overdue amount: **₹960,800**  \n- Oldest overdue invoice: 195 days late  \n- Total outstanding across all buyers: **₹1,23,67,054**  \n- Total overdue across all buyers: **₹65,05,954**",
+        "tools_called": [
+          "top_debtors"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.81,
+        "tokens_in": 2727,
+        "tokens_out": 247,
+        "cost_usd": 0.000594,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "data-02",
+        "category": "data",
+        "question": "How much money is overdue in total across all buyers?",
+        "passed": true,
+        "failures": [],
+        "answer": "**Total overdue amount:** ₹65,05,954  \n\n**Details**\n- Overdue invoices count: 67  \n- Overdue balance includes all invoices past due (minimum 1 day overdue).  \n- The most overdue invoice is **INV‑2026‑0012** (Iyer Spice Exports) – ₹92,700 overdue for 195 days.  \n- The largest single overdue balance is **INV‑2026‑0101** (Sharma Traders) – ₹53,546 overdue.  \n- Totals cover the full set of 67 overdue invoices (the list shows the 15 most overdue).",
+        "tools_called": [
+          "overdue_invoices"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.87,
+        "tokens_in": 3789,
+        "tokens_out": 381,
+        "cost_usd": 0.000854,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      },
+      {
+        "id": "data-03",
+        "category": "data",
+        "question": "How many invoices are overdue right now?",
+        "passed": true,
+        "failures": [],
+        "answer": "**67 invoices** are currently overdue.\n\n- Total overdue balance: ₹65,05,954.  \n- Overdue invoices are listed in order of days late, with the most overdue first.  \n- The list includes invoices dating back to April 2026.  \n- The “overdue_invoice_count” reflects all invoices past due as of 2026‑11‑15.  \n- The summary shows the 15 most overdue out of the 67 total.",
+        "tools_called": [
+          "overdue_invoices"
+        ],
+        "tool_selection_ok": true,
+        "llm_calls": 2,
+        "seconds": 1.55,
+        "tokens_in": 3783,
+        "tokens_out": 268,
+        "cost_usd": 0.000768,
+        "drafts_reaching_approval": 0,
+        "draft_attempts": 0
+      }
+    ]
+  }
+}
